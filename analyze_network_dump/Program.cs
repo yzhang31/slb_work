@@ -82,7 +82,6 @@ namespace analyze_network_dump
 
         static void Main(string[] args)
         {
-            List<ModuleInfo> all_modules = new List<ModuleInfo>();
             var xml = XDocument.Load(@"d:\Temp\NetworkDump_F70E5444-F6E3-4263-BF18-C598EED2F337_Recomputation_2017-03-10_15-20-18.xml");
 
             var domains =
@@ -90,29 +89,38 @@ namespace analyze_network_dump
                 where domain.Name == "Domain"
                 select domain;
 
+            IList<ModuleInfo> all_modules = ReadDomainModuleInfo(domains);
+            output(all_modules);
+        }
+
+
+        static IList<ModuleInfo> ReadDomainModuleInfo(IEnumerable<XElement> domains)
+        {
+            List<ModuleInfo> all_modules = new List<ModuleInfo>();
+
             string domainType = string.Empty;
             foreach (var domain in domains)
             {
                 var type = from d in domain.Elements()
-                   where d.Name == "DomainType"
-                   select d.Value;
+                           where d.Name == "DomainType"
+                           select d.Value;
 
                 domainType = type.First();
                 var moduleInfos = from e in domain.Descendants()
                                   where e.Name == "ModuleEntry"
                                   select e;
 
-                foreach(var m in moduleInfos)
+                foreach (var m in moduleInfos)
                 {
                     ModuleInfo mi = ReadModuleInfo(m);
                     mi.DomainType = domainType;
                     all_modules.Add(mi);
-                }                  
+                }
             }
-            output(all_modules);
+            return all_modules;
         }
 
-        static ModuleInfo ReadModuleInfo(XElement m)
+            static ModuleInfo ReadModuleInfo(XElement m)
         {
             ModuleInfo minfo = new ModuleInfo();
             minfo.ProgID = m.Element("Name").Value;
@@ -170,7 +178,7 @@ namespace analyze_network_dump
             return dr;
         }
 
-        private static void output(List<ModuleInfo> all_modules)
+        private static void output(IList<ModuleInfo> all_modules)
         {
 
             using (StreamWriter writer = File.CreateText("D:\\computation.dataflow.csv"))
