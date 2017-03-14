@@ -82,7 +82,28 @@ namespace analyze_network_dump
 
         static void Main(string[] args)
         {
-            var xml = XDocument.Load(@"d:\Temp\NetworkDump_F70E5444-F6E3-4263-BF18-C598EED2F337_Recomputation_2017-03-10_15-20-18.xml");
+            IEnumerable<string> dump_files = Directory.EnumerateFiles(@"D:\temp");
+
+            SortedList<string, ModuleInfo> sorted_all_modules = new SortedList<string, ModuleInfo>();
+            foreach (var path in dump_files)
+            {
+                IList<ModuleInfo> all_modules = LoadAllModuels(path);
+
+                foreach (var module in all_modules)
+                {
+                    if (!sorted_all_modules.ContainsKey(module.ProgID))
+                    {
+                        sorted_all_modules.Add(module.ProgID, module);
+                    }
+                }
+
+            }
+            output(sorted_all_modules.Values);
+        }
+
+        private static IList<ModuleInfo> LoadAllModuels(string filePath)
+        {
+            var xml = XDocument.Load(filePath);
 
             var domains =
                 from domain in xml.Descendants()
@@ -90,9 +111,8 @@ namespace analyze_network_dump
                 select domain;
 
             IList<ModuleInfo> all_modules = ReadDomainModuleInfo(domains);
-            output(all_modules);
+            return all_modules;
         }
-
 
         static IList<ModuleInfo> ReadDomainModuleInfo(IEnumerable<XElement> domains)
         {
