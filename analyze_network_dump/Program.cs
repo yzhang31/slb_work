@@ -18,6 +18,8 @@ namespace analyze_network_dump
             Channel,
             Survey,
             CaliCoeffcient,
+            Result,
+            IntervalSet
         }
 
         class DataRelation
@@ -82,12 +84,29 @@ namespace analyze_network_dump
 
         static void Main(string[] args)
         {
-            IEnumerable<string> dump_files = Directory.EnumerateFiles(@"D:\temp");
+
+            if (args.Count() != 2)
+            {
+                Console.WriteLine(@"sample: computation_log_analyzer.exe d:\temp d:\module_type.csv");
+                return;
+            }
+
+            string dirPath = args[0];
+            string outputfile = args[1];
+
+            IEnumerable<string> dump_files = Directory.GetFiles(dirPath, "*dump*.xml", SearchOption.AllDirectories);
 
             SortedList<string, ModuleInfo> sorted_all_modules = new SortedList<string, ModuleInfo>();
             foreach (var path in dump_files)
             {
+                Console.WriteLine("Processing: " + path);
+
                 IList<ModuleInfo> all_modules = LoadAllModuels(path);
+
+                if (all_modules.Count == 0)
+                {
+                    Console.WriteLine("     ERROR. No valid module tool info.");
+                }
 
                 foreach (var module in all_modules)
                 {
@@ -98,19 +117,28 @@ namespace analyze_network_dump
                 }
 
             }
-            output(sorted_all_modules.Values);
+            output(sorted_all_modules.Values, outputfile);
         }
 
         private static IList<ModuleInfo> LoadAllModuels(string filePath)
         {
-            var xml = XDocument.Load(filePath);
+            IList<ModuleInfo> all_modules = new List<ModuleInfo>();
+            try
+            {
+                var xml = XDocument.Load(filePath);
 
-            var domains =
-                from domain in xml.Descendants()
-                where domain.Name == "Domain"
-                select domain;
+                var domains =
+                    from domain in xml.Descendants()
+                    where domain.Name == "Domain"
+                    select domain;
 
-            IList<ModuleInfo> all_modules = ReadDomainModuleInfo(domains);
+                all_modules = ReadDomainModuleInfo(domains);
+            }
+            catch(System.Xml.XmlException e)
+            {
+                Console.WriteLine("Exception while loading xml file: %s" + filePath);
+
+            }
             return all_modules;
         }
 
@@ -132,9 +160,12 @@ namespace analyze_network_dump
 
                 foreach (var m in moduleInfos)
                 {
-                    ModuleInfo mi = ReadModuleInfo(m);
-                    mi.DomainType = domainType;
-                    all_modules.Add(mi);
+                    if (m.Descendants("ToolPath").Any())
+                    {
+                        ModuleInfo mi = ReadModuleInfo(m);
+                        mi.DomainType = domainType;
+                        all_modules.Add(mi);
+                    }
                 }
             }
             return all_modules;
@@ -156,11 +187,15 @@ namespace analyze_network_dump
             foreach (var item in inputs)
             {
                 DataRelation dr = GetRelation(item);
+                if (dr.Type == InputOutputType.IntervalSet)
+                {
+                    continue;
+                }
                 Trace.Assert(!string.IsNullOrWhiteSpace(dr.OSDD));
                 minfo.Inputs.Add(dr);
             }
 
-            Trace.Assert(minfo.Inputs.Count == inputs.Count());
+            //Trace.Assert(minfo.Inputs.Count == inputs.Count());
 
 
             var outputs = from p in m.Elements("Outputs")
@@ -170,6 +205,12 @@ namespace analyze_network_dump
             foreach (var item in outputs)
             {
                 DataRelation dr = GetRelation(item);
+
+                if (dr.Type == InputOutputType.IntervalSet)
+                {
+                    continue;
+                }
+
                 Trace.Assert(!string.IsNullOrWhiteSpace(dr.OSDD));
                 minfo.Outputs.Add(dr);
             }
@@ -194,14 +235,13 @@ namespace analyze_network_dump
                     }
                 }
             }
-            Trace.Assert(!string.IsNullOrWhiteSpace(dr.OSDD));
             return dr;
         }
 
-        private static void output(IList<ModuleInfo> all_modules)
+        private static void output(IList<ModuleInfo> all_modules, string outputfile)
         {
 
-            using (StreamWriter writer = File.CreateText("D:\\computation.dataflow.csv"))
+            using (StreamWriter writer = File.CreateText(outputfile))
             {
                 writer.WriteLine("Tool,Domain,ModuleName,ModuleType,ServiceParameter,NormalParameter,HasOutput,OutputChannel");
                 foreach (var item in all_modules)
