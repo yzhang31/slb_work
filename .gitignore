@@ -29,3 +29,10 @@
 *.app
 bin/
 Debug/
+/ForceCrash/.vs/ForceCrash/v15/ipch
+ForceCrash/.vs/ForceCrash/v15/Browse.VC.opendb
+/ForceCrash/ForceCrash/Release
+/ForceCrash/.vs/ForceCrash/v15/*.suo
+/ForceCrash/*.suo
+/ForceCrash/Release/*.pdb
+/ForceCrash/*.sdf
